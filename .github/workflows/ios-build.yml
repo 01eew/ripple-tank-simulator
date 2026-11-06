@@ -1,0 +1,62 @@
+name: Build iOS IPA (Ripple Tank)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack project source
+        run: |
+          if [ -f project.tar.gz ]; then tar -xzf project.tar.gz; fi
+          ls -la
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate iOS platform folder
+        run: |
+          flutter --version
+          flutter create --platforms ios --org com.husseinkhalid --project-name untitled .
+
+      - name: Set app name and bundle id
+        run: |
+          PLIST=ios/Runner/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Ripple Tank" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Ripple Tank" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName RippleTank" "$PLIST"
+          sed -i '' 's/com.husseinkhalid.untitled/com.husseinkhalid.rippletank/g' ios/Runner.xcodeproj/project.pbxproj
+
+      - run: flutter pub get
+
+      - name: Build (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry RippleTank.ipa Payload
+          ls -lh RippleTank.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RippleTank-ipa
+          path: RippleTank.ipa
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Ripple Tank IPA (build ${{ github.run_number }})
+          body: "محاكي حوض الأمواج التفاعلي — برمجة وتطوير: حسين خالد حميد. ملف IPA غير موقّع، ثبّته عبر Sideloadly أو AltStore."
+          files: RippleTank.ipa
