@@ -1,0 +1,22 @@
+name: iOS Build
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: tar -xzf project.tar.gz
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter create --platforms ios --org com.husseinkhalid --project-name untitled .
+      - run: /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Ripple Tank" ios/Runner/Info.plist
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign
+      - run: mkdir Payload
+      - run: mv build/ios/iphoneos/Runner.app Payload/
+      - run: zip -qq -r RippleTank.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RippleTank-IPA
+          path: RippleTank.ipa
